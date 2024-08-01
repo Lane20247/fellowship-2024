@@ -2,14 +2,18 @@
 import Image from 'next/image'
 import {useState, useEffect} from 'react'
 import {firestore} from '@/firebase'
-import {Box,Stack,Typography,Modal, TextField, Button} from '@mui/material'
+import {Box,Stack,Typography,Modal, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper} from '@mui/material'
 import {query, getDocs, collection, setDoc, doc, deleteDoc, getDoc} from 'firebase/firestore'
-// import { transform } from 'next/dist/build/swc'
+import './globals.css'
+// // import { transform } from 'next/dist/build/swc'
+// import DashboardIcon from '@mui/icons-material/Dashboard'
+// import InventoryIcon from '@mui/icons-material/Inventory'
 
 export default function Home() {
   const [inventory, setInventory]=useState([])
   const [open, setOpen]=useState(false)
   const [itemName, setItemName]=useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const updateInventory= async () => {
     const snapshot = query(collection(firestore,'inventory'))
@@ -59,6 +63,10 @@ export default function Home() {
 
   const handleOpen= () => setOpen(true)
   const handleClose= () => setOpen(false)
+
+  const filteredInventory = inventory.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <Box width= "100vw"
@@ -112,6 +120,14 @@ export default function Home() {
       }}>
         Add New Item
       </Button>
+      <TextField
+        variant='outlined'
+        placeholder="Search items..."
+        fullWidth
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ maxWidth: '800px', marginBottom: 2 }}
+      />
       <Box border='1px solid #333' width="800px">
         <Box width="798px" height="100px" bgcolor="#ADD8E6"
         display="flex" alignItems="center" justifyContent="center">
@@ -120,38 +136,33 @@ export default function Home() {
           Inventory Items
           </Typography>
         </Box>
-      <Stack width = "800px" height = "300px" spacing={2} overflow="auto">
-        {
-          inventory.map(({name, quantity})=>(
-            <Box key={name} width="100%" minHeight="150px" display="flex" alignItems="center"
-            justifyContent="space-between"
-            bgColor="#f0f0f0"
-            borderBottom="1px solid #ccc"
-            padding={5}>
-              <Typography variant="h3" color="#333" textAlign="center">
-                {name.charAt(0).toUpperCase() + name.slice(1)}
-              </Typography>
-              <Typography variant="h3" color="#333" textAlign="center">
-                {quantity}
-              </Typography>
-              <Stack direction = "row" spacing={2}>
-              <Button variant = "contained" onClick={()=>{
-                addItem(name)
-              }}>
-                Add
-              </Button>
-              <Button variant = "contained" onClick={()=>{
-                removeItem(name)
-              }}>
-                Remove
-              </Button>
-              </Stack>
-
-            </Box>
-
-  ))}
-
-      </Stack>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Item</TableCell>
+                <TableCell align="center">Quantity</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredInventory.map(({ name, quantity }) => (
+                <TableRow key={name}>
+                  <TableCell component="th" scope="row">
+                    {name.charAt(0).toUpperCase() + name.slice(1)}
+                  </TableCell>
+                  <TableCell align="center">{quantity}</TableCell>
+                  <TableCell align="center">
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      <Button size="small" variant="contained" onClick={() => addItem(name)}>Add</Button>
+                      <Button size="small" variant="contained" color="error" onClick={() => removeItem(name)}>Remove</Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
     </Box>
     </Box>
 
