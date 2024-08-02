@@ -7,3 +7,19 @@
   padding: 0;
   margin: 0;
 }
+
+.bg-pastel-green {
+  background-color: #d6f5d6;
+}
+
+.bg-pastel-blue {
+  background-color: #cce5ff;
+}
+
+.bg-pastel-dark-blue {
+  background-color: #99c2ff;
+}
+
+.text-gray-700 {
+  color: #4a4a4a;
+}

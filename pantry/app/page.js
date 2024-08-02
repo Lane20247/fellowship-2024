@@ -10,7 +10,6 @@ import {
 } from '@mui/material'
 import { query, getDocs, collection, setDoc, doc, deleteDoc, getDoc } from 'firebase/firestore'
 import MuiAppBar from '@mui/material/AppBar';
-import { styled } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import MenuIcon from '@mui/icons-material/Menu';
 import Badge from '@mui/material/Badge';
@@ -22,6 +21,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import './globals.css'
+import { styled, alpha } from '@mui/material/styles';
+import KitchenIcon from '@mui/icons-material/Kitchen';
+import InputBase from '@mui/material/InputBase';
 
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== 'open',
@@ -38,6 +40,51 @@ const AppBar = styled(MuiAppBar, {
     }),
   }),
 }));
+
+const Search = styled('div')(({ theme }) => ({
+  position: 'relative',
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: alpha(theme.palette.common.white, 0.15),
+  '&:hover': {
+    backgroundColor: alpha(theme.palette.common.white, 0.25),
+  },
+  marginRight: theme.spacing(2),
+  marginLeft: 0,
+  width: '100%',
+  [theme.breakpoints.up('sm')]: {
+    marginLeft: theme.spacing(3),
+    width: 'auto',
+  },
+}));
+
+const SearchIconWrapper = styled('div')(({ theme }) => ({
+  padding: theme.spacing(0, 2),
+  height: '100%',
+  position: 'absolute',
+  pointerEvents: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}));
+
+const StyledInputBase = styled(InputBase)(({ theme }) => ({
+  color: 'inherit',
+  '& .MuiInputBase-input': {
+    padding: theme.spacing(1, 1, 1, 0),
+    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+    transition: theme.transitions.create('width'),
+    width: '100%',
+    [theme.breakpoints.up('md')]: {
+      width: '20ch',
+    },
+  },
+}));
+
+const CustomAppBar = styled(AppBar)(({ theme }) => ({
+  backgroundColor: '#FFB6C1', // Light pink color
+  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+}));
+
 
 export default function Home() {
   const [inventory, setInventory] = useState([])
@@ -97,20 +144,20 @@ export default function Home() {
     await updateShoppingList()
   }
 
-  const addItem = async (item) => {
-    if (!item) return
-    const docRef = doc(collection(firestore, 'inventory'), item.toLowerCase())
-    const docSnap = await getDoc(docRef)
+  const addItem = async (itemName, quantity) => {
+    if (!itemName) return;
+    const docRef = doc(collection(firestore, 'inventory'), itemName.toLowerCase());
+    const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-      const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1 })
+      const currentQuantity = docSnap.data().quantity;
+      await setDoc(docRef, { quantity: currentQuantity + (quantity || 1) });
     } else {
-      await setDoc(docRef, { quantity: 1 })
+      await setDoc(docRef, { quantity: quantity || 1 });
     }
-    await updateInventory()
-    await removeFromShoppingList(item)
-  }
+    await updateInventory();
+    await removeFromShoppingList(itemName);
+  };
 
   const removeItem = async (item) => {
     const docRef = doc(collection(firestore, 'inventory'), item.toLowerCase())
@@ -165,12 +212,12 @@ export default function Home() {
   }, [])
 
   const handleOpen = (itemName, quantity) => {
-    setItemName(itemName)
-    setItemQuantity(quantity !== undefined ? quantity.toString() : '')
-    setEditMode(true)
-    setCurrentItem(itemName)
-    setOpen(true)
-  }
+    setItemName(itemName || '');
+    setItemQuantity(quantity !== undefined ? quantity.toString() : '1');
+    setEditMode(!!itemName);
+    setCurrentItem(itemName || '');
+    setOpen(true);
+  };
 
   const handleClose = () => {
     setOpen(false)
@@ -189,13 +236,13 @@ export default function Home() {
 
   return (
     <Box className="flex flex-col items-center gap-8 p-8 pt-24 min-h-screen bg-gray-100">
-      <AppBar position="fixed" open={open} className="bg-blue-600 shadow-md">
+      <CustomAppBar position="fixed" open={open}>
         <Toolbar className="flex justify-between items-center px-4">
           <IconButton
             edge="start"
             color="inherit"
             aria-label="open drawer"
-            className="mr-4 hover:bg-blue-700 transition-colors duration-200"
+            className="mr-4 hover:bg-blue-200 transition-colors duration-200"
             sx={{ ...(open && { display: 'none' }) }}
           >
             <MenuIcon />
@@ -209,7 +256,7 @@ export default function Home() {
             </Badge>
           </IconButton>
         </Toolbar>
-      </AppBar>
+      </CustomAppBar>
 
       <Modal open={open} onClose={handleClose}>
         <Box className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-8 bg-white shadow-xl rounded-lg w-96">
@@ -241,9 +288,10 @@ export default function Home() {
             color="primary"
             onClick={() => {
               if (editMode) {
-                editItem()
+                editItem();
               } else {
-                addItem(itemName)
+                addItem(itemName, parseInt(itemQuantity) || 1);
+                handleClose();
               }
             }}
           >
@@ -280,7 +328,7 @@ export default function Home() {
           <Button
             variant="contained"
             color="primary"
-            onClick={() => handleOpen('', '')}
+            onClick={() => handleOpen()}
             className="py-3 px-6 text-lg font-medium shadow-md transition-all duration-200 hover:shadow-lg hover:bg-blue-700"
           >
             Add New Item to Pantry
