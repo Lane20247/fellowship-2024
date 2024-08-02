@@ -1,21 +1,27 @@
 'use client'
 
-import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { firestore } from '@/firebase'
-import { Box, Stack, Typography, Modal, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material'
+import {
+  Box, Stack, Typography, Modal, TextField, Button, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, IconButton, Tooltip, Dialog, DialogActions,
+  DialogContent, DialogContentText, DialogTitle
+} from '@mui/material'
 import { query, getDocs, collection, setDoc, doc, deleteDoc, getDoc } from 'firebase/firestore'
-import './globals.css'
 import MuiAppBar from '@mui/material/AppBar';
 import { styled } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import Badge from '@mui/material/Badge';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import Divider from '@mui/material/Divider';
-import List from '@mui/material/List';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import './globals.css'
 
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== 'open',
@@ -41,6 +47,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [currentItem, setCurrentItem] = useState('')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState(null)
 
   const updateInventory = async () => {
     const snapshot = query(collection(firestore, 'inventory'))
@@ -110,13 +118,24 @@ export default function Home() {
     if (docSnap.exists()) {
       const { quantity } = docSnap.data()
       if (quantity === 1) {
-        await deleteDoc(docRef)
-        await addToShoppingList(item)
+        setItemToDelete(item)
+        setDeleteConfirmOpen(true)
       } else {
         await setDoc(docRef, { quantity: quantity - 1 })
+        await updateInventory()
       }
     }
-    await updateInventory()
+  }
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      const docRef = doc(collection(firestore, 'inventory'), itemToDelete.toLowerCase())
+      await deleteDoc(docRef)
+      await addToShoppingList(itemToDelete)
+      await updateInventory()
+      setDeleteConfirmOpen(false)
+      setItemToDelete(null)
+    }
   }
 
   const editItem = async () => {
@@ -126,15 +145,12 @@ export default function Home() {
     if (docSnap.exists()) {
       const newQuantity = parseInt(itemName)
       if (newQuantity <= 0) {
-
         await addToShoppingList(currentItem)
         await deleteDoc(docRef)
       } else {
-
         await setDoc(docRef, { quantity: newQuantity })
       }
     } else {
-
       await setDoc(docRef, { quantity: parseInt(itemName) })
     }
 
@@ -170,64 +186,48 @@ export default function Home() {
   )
 
   return (
-    <Box
-      width="100vw"
-      height="100vh"
-      display={'flex'}
-      justifyContent={'center'}
-      flexDirection={'column'}
-      alignItems={'center'}
-      gap={2}
-    >
-      <AppBar position="absolute" open={open}>
-        <Toolbar sx={{ pr: '24px' }}>
+    <Box className="flex flex-col items-center gap-8 p-8 pt-24 min-h-screen bg-gray-100">
+      <AppBar position="fixed" open={open} className="bg-blue-600 shadow-md">
+        <Toolbar className="flex justify-between items-center px-4">
           <IconButton
             edge="start"
             color="inherit"
             aria-label="open drawer"
-            sx={{ marginRight: '36px', ...(open && { display: 'none' }) }}
+            className="mr-4 hover:bg-blue-700 transition-colors duration-200"
+            sx={{ ...(open && { display: 'none' }) }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
+          <Typography component="h1" variant="h5" color="inherit" noWrap className="text-white font-semibold">
             Perfect Pantry Manager
           </Typography>
-          <IconButton color="inherit">
+          <IconButton color="inherit" className="hover:bg-blue-700 transition-colors duration-200">
             <Badge badgeContent={4} color="secondary">
               <NotificationsIcon />
             </Badge>
           </IconButton>
         </Toolbar>
       </AppBar>
+
       <Modal open={open} onClose={handleClose}>
-        <Box
-          position="absolute"
-          top="50%"
-          width={400}
-          bgcolor="white"
-          border="2px solid #000"
-          boxShadow={24}
-          p={4}
-          display="flex"
-          flexDirection="column"
-          gap={3}
-          transform="translate(-50%, -50%)"
-          top="50%"
-          left="50%"
-        >
-          <Typography variant="h6">{editMode ? 'Edit Item' : 'Add Item'}</Typography>
-          <Stack width="100%" direction="row" spacing={2}>
+        <Box className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-8 bg-white shadow-xl rounded-lg w-96">
+          <Typography variant="h5" className="mb-6 font-semibold">
+            {editMode ? 'Edit Item' : 'Add Item'}
+          </Typography>
+          <Stack direction="column" spacing={3}>
             <TextField
               variant='outlined'
               fullWidth
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
-              type="number"
+              type="text"
               label={editMode ? "New Quantity" : "Item Name"}
               inputProps={{ min: 0 }}
+              className="text-gray-700"
             />
             <Button
-              variant="outlined"
+              variant="contained"
+              color="primary"
               onClick={() => {
                 if (editMode) {
                   editItem()
@@ -236,100 +236,174 @@ export default function Home() {
                 }
                 handleClose()
               }}
+              className="self-end py-3 px-6 text-lg font-medium transition-colors duration-200 hover:bg-blue-700"
             >
               {editMode ? 'Save' : 'Add'}
             </Button>
           </Stack>
         </Box>
       </Modal>
-      <Button
-        variant="contained"
-        onClick={() => handleOpen('', '')}
+
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
       >
-        Add New Item to Pantry
-      </Button>
-      <TextField
-        variant='outlined'
-        placeholder="Search items in pantry..."
-        fullWidth
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        sx={{ maxWidth: '800px', marginBottom: 2 }}
-      />
-      <Box border='1px solid #333' width="800px">
-        <Box width="798px" height="100px" bgcolor="#ADD8E6" display="flex" alignItems="center" justifyContent="center">
-          <Typography variant='h2' color='#333'>Pantry Items</Typography>
-        </Box>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Item</TableCell>
-                <TableCell align="center">Quantity</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredInventory.map(({ name, quantity }) => (
-                <TableRow key={name}>
-                  <TableCell component="th" scope="row">
-                    {name.charAt(0).toUpperCase() + name.slice(1)}
-                  </TableCell>
-                  <TableCell align="center">{quantity}</TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      <Button size="small" variant="contained" onClick={() => addItem(name)}>Add</Button>
-                      <Button size="small" variant="contained" color="error" onClick={() => removeItem(name)}>Remove</Button>
-                      <Button size="small" variant="contained" color="info" onClick={() => handleOpen(name, quantity)}>Edit</Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-      <Box border='1px solid #333' width="800px">
-        <Box width="798px" height="100px" bgcolor="#FFD700" display="flex" alignItems="center" justifyContent="center">
-          <Typography variant='h2' color='#333'>Shopping List</Typography>
-        </Box>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Item</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredShoppingList.map(({ name }) => (
-                <TableRow key={name}>
-                  <TableCell component="th" scope="row">
-                    {name.charAt(0).toUpperCase() + name.slice(1)}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => addItem(name)}
-                    >
-                      Add to Pantry
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      onClick={() => removeFromShoppingList(name)}
-                      sx={{ marginLeft: 2 }}
-                    >
-                      Remove
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+        <DialogTitle id="alert-dialog-title">{"Confirm Deletion"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to remove this item from your pantry? It will be added to your shopping list.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} color="primary" autoFocus>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <div className="w-full max-w-6xl flex flex-col gap-8">
+        <div className="flex justify-between items-center">
+          <Typography variant="h3" className="text-gray-800 font-bold">
+            Pantry Management
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => handleOpen('', '')}
+            className="py-3 px-6 text-lg font-medium shadow-md transition-all duration-200 hover:shadow-lg hover:bg-blue-700"
+          >
+            Add New Item to Pantry
+          </Button>
+        </div>
+
+        <TextField
+          variant='outlined'
+          placeholder="Search items..."
+          fullWidth
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="mb-4 shadow-sm"
+          InputProps={{
+            startAdornment: (
+              <SearchIcon className="text-gray-400 mr-2" />
+            ),
+          }}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Box className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+            <Box className="bg-blue-200 text-center p-6">
+              <Typography variant='h4' className="text-gray-800 font-semibold">Pantry Items</Typography>
+            </Box>
+            <TableContainer component={Paper} className="max-h-[500px] overflow-y-auto">
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow className="bg-gray-100">
+                    <TableCell className="font-semibold text-lg">Item</TableCell>
+                    <TableCell align="center" className="font-semibold text-lg">Quantity</TableCell>
+                    <TableCell align="center" className="font-semibold text-lg">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredInventory.map(({ name, quantity }) => (
+                    <TableRow key={name} className="hover:bg-gray-50 transition-colors duration-150">
+                      <TableCell component="th" scope="row" className="capitalize text-lg">
+                        {name}
+                      </TableCell>
+                      <TableCell align="center" className="text-lg">{quantity}</TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={2} justifyContent="center">
+                          <Tooltip title="Add one">
+                            <IconButton
+                              color="primary"
+                              onClick={() => addItem(name)}
+                              className="transition-colors duration-200 hover:bg-blue-100"
+                            >
+                              <AddIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Remove one">
+                            <IconButton
+                              color="error"
+                              onClick={() => removeItem(name)}
+                              className="transition-colors duration-200 hover:bg-red-100"
+                            >
+                              <RemoveIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit quantity">
+                            <IconButton
+                              color="info"
+                              onClick={() => handleOpen(name, quantity)}
+                              className="transition-colors duration-200 hover:bg-cyan-100"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
+          <Box className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+            <Box className="bg-yellow-200 text-center p-6">
+              <Typography variant='h4' className="text-gray-800 font-semibold">Shopping List</Typography>
+            </Box>
+            <TableContainer component={Paper} className="max-h-[500px] overflow-y-auto">
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow className="bg-gray-100">
+                    <TableCell className="font-semibold text-lg">Item</TableCell>
+                    <TableCell align="center" className="font-semibold text-lg">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredShoppingList.map(({ name }) => (
+                    <TableRow key={name} className="hover:bg-gray-50 transition-colors duration-150">
+                      <TableCell component="th" scope="row" className="capitalize text-lg">
+                        {name}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={2} justifyContent="center">
+                          <Tooltip title="Add to pantry">
+                            <Button
+                              variant="contained"
+                              color="success"
+                              onClick={() => addItem(name)}
+                              className="px-4 py-2 transition-colors duration-200 hover:bg-green-700"
+                              startIcon={<AddShoppingCartIcon />}
+                            >
+                              Add to Pantry
+                            </Button>
+                          </Tooltip>
+                          <Tooltip title="Remove from list">
+                            <IconButton
+                              color="error"
+                              onClick={() => removeFromShoppingList(name)}
+                              className="transition-colors duration-200 hover:bg-red-100"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </div>
+      </div>
     </Box>
   )
-}
+};
