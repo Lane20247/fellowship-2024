@@ -44,6 +44,7 @@ export default function Home() {
   const [shoppingList, setShoppingList] = useState([])
   const [open, setOpen] = useState(false)
   const [itemName, setItemName] = useState('')
+  const [itemQuantity, setItemQuantity] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [currentItem, setCurrentItem] = useState('')
@@ -143,7 +144,7 @@ export default function Home() {
     const docSnap = await getDoc(docRef)
 
     if (docSnap.exists()) {
-      const newQuantity = parseInt(itemName)
+      const newQuantity = parseInt(itemQuantity)
       if (newQuantity <= 0) {
         await addToShoppingList(currentItem)
         await deleteDoc(docRef)
@@ -151,7 +152,7 @@ export default function Home() {
         await setDoc(docRef, { quantity: newQuantity })
       }
     } else {
-      await setDoc(docRef, { quantity: parseInt(itemName) })
+      await setDoc(docRef, { quantity: parseInt(itemQuantity) })
     }
 
     await updateInventory()
@@ -164,8 +165,9 @@ export default function Home() {
   }, [])
 
   const handleOpen = (itemName, quantity) => {
-    setItemName(quantity !== undefined ? quantity.toString() : '')
-    setEditMode(!!itemName)
+    setItemName(itemName)
+    setItemQuantity(quantity !== undefined ? quantity.toString() : '')
+    setEditMode(true)
     setCurrentItem(itemName)
     setOpen(true)
   }
@@ -215,57 +217,61 @@ export default function Home() {
             {editMode ? 'Edit Item' : 'Add Item'}
           </Typography>
           <Stack direction="column" spacing={3}>
-            <TextField
-              variant='outlined'
-              fullWidth
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
-              type="text"
-              label={editMode ? "New Quantity" : "Item Name"}
-              inputProps={{ min: 0 }}
-              className="text-gray-700"
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                if (editMode) {
-                  editItem()
-                } else {
-                  addItem(itemName)
-                }
-                handleClose()
-              }}
-              className="self-end py-3 px-6 text-lg font-medium transition-colors duration-200 hover:bg-blue-700"
-            >
-              {editMode ? 'Save' : 'Add'}
-            </Button>
+          <TextField
+            variant='outlined'
+            fullWidth
+            value={itemName}
+            onChange={(e) => setItemName(e.target.value)}
+            type="text"
+            label={editMode ? "Item Name" : "Item Name"}
+            className="text-gray-700"
+          />
+          <TextField
+            variant='outlined'
+            fullWidth
+            value={itemQuantity}
+            onChange={(e) => setItemQuantity(e.target.value)}
+            type="number"
+            label="Quantity"
+            inputProps={{ min: 0 }}
+            className="text-gray-700"
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              if (editMode) {
+                editItem()
+              } else {
+                addItem(itemName)
+              }
+            }}
+          >
+            {editMode ? 'Save Changes' : 'Add Item'}
+          </Button>
           </Stack>
         </Box>
       </Modal>
 
       <Dialog
-        open={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">{"Confirm Deletion"}</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            Are you sure you want to remove this item from your pantry? It will be added to your shopping list.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={confirmDelete} color="primary" autoFocus>
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
+  open={deleteConfirmOpen}
+  onClose={() => setDeleteConfirmOpen(false)}
+>
+  <DialogTitle>Confirm Delete</DialogTitle>
+    <DialogContent>
+      <DialogContentText>
+        Are you sure you want to delete {itemToDelete}?
+      </DialogContentText>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={() => setDeleteConfirmOpen(false)} color="primary">
+        Cancel
+      </Button>
+      <Button onClick={confirmDelete} color="primary">
+        Confirm
+      </Button>
+    </DialogActions>
+  </Dialog>
       <div className="w-full max-w-6xl flex flex-col gap-8">
         <div className="flex justify-between items-center">
           <Typography variant="h3" className="text-gray-800 font-bold">
@@ -280,7 +286,6 @@ export default function Home() {
             Add New Item to Pantry
           </Button>
         </div>
-
         <TextField
           variant='outlined'
           placeholder="Search items..."
@@ -353,7 +358,6 @@ export default function Home() {
               </Table>
             </TableContainer>
           </Box>
-
           <Box className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
             <Box className="bg-yellow-200 text-center p-6">
               <Typography variant='h4' className="text-gray-800 font-semibold">Shopping List</Typography>
