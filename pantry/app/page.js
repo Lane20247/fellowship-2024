@@ -336,7 +336,7 @@ export default function Home() {
           />
           <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer">
             <input {...getInputProps()} />
-            <p>Drag 'n' drop an image here, or click to select one</p>
+            <p>Drag and drop an image here, or click to select one</p>
           </div>
           {itemImage && (
             <p>{itemImage.name} - {itemImage.size} bytes</p>
