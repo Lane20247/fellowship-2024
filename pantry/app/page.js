@@ -23,7 +23,6 @@ import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import './globals.css'
 // import RecipeSuggestion from './RecipeSuggestion';
 import { styled, alpha } from '@mui/material/styles';
-import KitchenIcon from '@mui/icons-material/Kitchen';
 import InputBase from '@mui/material/InputBase';
 import { useDropzone } from 'react-dropzone';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -85,7 +84,7 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 }));
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
-  backgroundColor: '#FFB6C1', // Light pink color
+  backgroundColor: '#FFB6C1',
   boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
 }));
 
@@ -110,14 +109,14 @@ export default function Home() {
     const inventoryList = []
     docs.forEach((doc) => {
       const data = doc.data();
-      console.log('Item data:', data); // Add this line
+      console.log('Item data:', data);
       inventoryList.push({
         name: doc.id,
         ...data,
       })
     })
     setInventory(inventoryList)
-    console.log('Updated inventory:', inventoryList); // Add this line
+    console.log('Updated inventory:', inventoryList); 
   }
 
   const updateShoppingList = async () => {
