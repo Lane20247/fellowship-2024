@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect,useCallback } from 'react'
 import { firestore } from '@/firebase'
 import {
   Box, Stack, Typography, Modal, TextField, Button, Table,
@@ -21,9 +21,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import './globals.css'
+// import RecipeSuggestion from './RecipeSuggestion';
 import { styled, alpha } from '@mui/material/styles';
 import KitchenIcon from '@mui/icons-material/Kitchen';
 import InputBase from '@mui/material/InputBase';
+import { useDropzone } from 'react-dropzone';
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== 'open',
@@ -97,18 +101,23 @@ export default function Home() {
   const [currentItem, setCurrentItem] = useState('')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState(null)
+  const [itemImage, setItemImage] = useState(null);
+
 
   const updateInventory = async () => {
     const snapshot = query(collection(firestore, 'inventory'))
     const docs = await getDocs(snapshot)
     const inventoryList = []
     docs.forEach((doc) => {
+      const data = doc.data();
+      console.log('Item data:', data); // Add this line
       inventoryList.push({
         name: doc.id,
-        ...doc.data(),
+        ...data,
       })
     })
     setInventory(inventoryList)
+    console.log('Updated inventory:', inventoryList); // Add this line
   }
 
   const updateShoppingList = async () => {
@@ -125,14 +134,14 @@ export default function Home() {
   }
 
   const addToShoppingList = async (item) => {
-    const docRef = doc(collection(firestore, 'shoppingList'), item.toLowerCase())
-    const docSnap = await getDoc(docRef)
+    const docRef = doc(collection(firestore, 'shoppingList'), item.toLowerCase());
+    const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
-      await setDoc(docRef, { quantity: 1 })
-      await updateShoppingList()
+      await setDoc(docRef, { quantity: 1, imageUrl: item.imageUrl || null });
+      await updateShoppingList();
     }
-  }
+  };
 
   const removeFromShoppingList = async (item) => {
     const docRef = doc(collection(firestore, 'shoppingList'), item.toLowerCase())
@@ -149,11 +158,23 @@ export default function Home() {
     const docRef = doc(collection(firestore, 'inventory'), itemName.toLowerCase());
     const docSnap = await getDoc(docRef);
 
+    let imageUrl = null;
+    if (itemImage) {
+      imageUrl = await uploadImage(itemImage);
+      console.log('Uploaded image URL:', imageUrl);
+    }
+
     if (docSnap.exists()) {
       const currentQuantity = docSnap.data().quantity;
-      await setDoc(docRef, { quantity: currentQuantity + (quantity || 1) });
+      await setDoc(docRef, {
+        quantity: currentQuantity + (quantity || 1),
+        imageUrl: imageUrl || docSnap.data().imageUrl
+      });
     } else {
-      await setDoc(docRef, { quantity: quantity || 1 });
+      await setDoc(docRef, {
+        quantity: quantity || 1,
+        imageUrl: imageUrl
+      });
     }
     await updateInventory();
     await removeFromShoppingList(itemName);
@@ -187,24 +208,53 @@ export default function Home() {
   }
 
   const editItem = async () => {
-    const docRef = doc(collection(firestore, 'inventory'), currentItem.toLowerCase())
-    const docSnap = await getDoc(docRef)
+    const docRef = doc(collection(firestore, 'inventory'), currentItem.toLowerCase());
+    const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const newQuantity = parseInt(itemQuantity)
-      if (newQuantity <= 0) {
-        await addToShoppingList(currentItem)
-        await deleteDoc(docRef)
-      } else {
-        await setDoc(docRef, { quantity: newQuantity })
-      }
-    } else {
-      await setDoc(docRef, { quantity: parseInt(itemQuantity) })
+    let imageUrl = null;
+    if (itemImage) {
+      imageUrl = await uploadImage(itemImage);
+      console.log('Uploaded image URL:', imageUrl);
     }
 
-    await updateInventory()
-    handleClose()
-  }
+    if (docSnap.exists()) {
+      const newQuantity = parseInt(itemQuantity);
+      if (newQuantity <= 0) {
+        await addToShoppingList(currentItem);
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, {
+          quantity: newQuantity,
+          imageUrl: imageUrl || docSnap.data().imageUrl
+        });
+      }
+    } else {
+      await setDoc(docRef, {
+        quantity: parseInt(itemQuantity),
+        imageUrl: imageUrl
+      });
+    }
+
+    await updateInventory();
+    handleClose();
+  };
+
+  const onDrop = useCallback((acceptedFiles) => {
+    setItemImage(acceptedFiles[0]);
+  }, []);
+
+  const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: 'image/*', maxFiles: 1 });
+
+  const uploadImage = async (file) => {
+    if (!file) return null;
+    const storage = getStorage();
+    const storageRef = ref(storage, `item-images/${file.name}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  };
+
+
+
 
   useEffect(() => {
     updateInventory()
@@ -224,6 +274,7 @@ export default function Home() {
     setEditMode(false)
     setCurrentItem('')
     setItemName('')
+    setItemImage(null)
   }
 
   const filteredInventory = inventory.filter(item =>
@@ -283,6 +334,13 @@ export default function Home() {
             inputProps={{ min: 0 }}
             className="text-gray-700"
           />
+          <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer">
+            <input {...getInputProps()} />
+            <p>Drag 'n' drop an image here, or click to select one</p>
+          </div>
+          {itemImage && (
+            <p>{itemImage.name} - {itemImage.size} bytes</p>
+          )}
           <Button
             variant="contained"
             color="primary"
@@ -363,10 +421,15 @@ export default function Home() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredInventory.map(({ name, quantity }) => (
+                  {filteredInventory.map(({ name, quantity, imageUrl  }) => (
                     <TableRow key={name} className="hover:bg-gray-50 transition-colors duration-150">
                       <TableCell component="th" scope="row" className="capitalize text-lg">
+                      <div className="flex items-center">
+                        {imageUrl && (
+                          <img src={imageUrl} alt={name} className="w-8 h-8 mr-2 object-cover rounded-full" />
+                        )}
                         {name}
+                      </div>
                       </TableCell>
                       <TableCell align="center" className="text-lg">{quantity}</TableCell>
                       <TableCell align="center">
@@ -415,15 +478,22 @@ export default function Home() {
                 <TableHead>
                   <TableRow className="bg-gray-100">
                     <TableCell className="font-semibold text-lg">Item</TableCell>
+                    <TableCell className="font-semibold text-lg">Quantity</TableCell>
                     <TableCell align="center" className="font-semibold text-lg">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredShoppingList.map(({ name }) => (
+                  {filteredShoppingList.map(({ name, quantity, imageUrl }) => (
                     <TableRow key={name} className="hover:bg-gray-50 transition-colors duration-150">
                       <TableCell component="th" scope="row" className="capitalize text-lg">
+                        <div className="flex items-center">
+                        {imageUrl && (
+                          <img src={imageUrl} alt={name} className="w-8 h-8 mr-2 object-cover rounded-full" />
+                        )}
                         {name}
+                      </div>
                       </TableCell>
+                      <TableCell>{quantity}</TableCell>
                       <TableCell align="center">
                         <Stack direction="row" spacing={2} justifyContent="center">
                           <Tooltip title="Add to pantry">
@@ -455,6 +525,7 @@ export default function Home() {
             </TableContainer>
           </Box>
         </div>
+        {/* <RecipeSuggestion /> */}
       </div>
     </Box>
   )

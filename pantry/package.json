@@ -16,9 +16,11 @@
     "autoprefixer": "^10.4.19",
     "firebase": "^10.12.4",
     "next": "14.2.5",
+    "openai": "^4.54.0",
     "postcss": "^8.4.40",
     "react": "^18",
     "react-dom": "^18",
+    "react-dropzone": "^14.2.3",
     "tailwindcss": "^3.4.7",
     "uuid": "^10.0.0"
   },
